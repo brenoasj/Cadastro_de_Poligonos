@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mapa de Áreas — Jacareí SP</title>
+
+    <!-- Importa o CSS do Leaflet.js para renderizar o mapa corretamente -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Importa fontes do Google Fonts para estilização -->
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+    <style>
+        /* ── Variáveis de tema ───────────────────── */
+        :root {
+            --bg: #0e1117;           /* Fundo escuro principal */
+            --surface: #181c27;      /* Fundo de cards e painéis */
+            --border: #2a2f3e;       /* Cor das bordas */
+            --accent-escolar: #38bdf8;    /* Azul para área escolar */
+            --accent-industrial: #fb923c; /* Laranja para área industrial */
+            --accent-residencial: #4ade80; /* Verde para área residencial */
+            --text: #e2e8f0;         /* Texto principal claro */
+            --muted: #64748b;        /* Texto secundário */
+        }
+
+        /* ── Reset e base ────────────────────────── */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif; /* Fonte do corpo do texto */
+            background: var(--bg);              /* Fundo escuro */
+            color: var(--text);                 /* Cor padrão do texto */
+            height: 100vh;                      /* Ocupa toda a altura da tela */
+            display: flex;                      /* Layout flexbox principal */
+            flex-direction: column;             /* Empilha header + conteúdo verticalmente */
+            overflow: hidden;                   /* Evita scroll na página inteira */
+        }
+
+        /* ── Cabeçalho ───────────────────────────── */
+        header {
+            background: var(--surface);       /* Fundo do header */
+            border-bottom: 1px solid var(--border); /* Linha separadora */
+            padding: 14px 24px;               /* Espaçamento interno */
+            display: flex;                    /* Alinha logo e título lado a lado */
+            align-items: center;              /* Centraliza verticalmente */
+            gap: 12px;                        /* Espaço entre ícone e título */
+            z-index: 1000;                    /* Fica acima do mapa */
+        }
+
+        header h1 {
+            font-family: 'Syne', sans-serif; /* Fonte display para o título */
+            font-size: 1.2rem;               /* Tamanho do título */
+            font-weight: 800;                /* Negrito forte */
+            letter-spacing: -0.02em;         /* Aperta levemente as letras */
+        }
+
+        header span.sub {
+            font-size: 0.78rem;  /* Texto menor para o subtítulo */
+            color: var(--muted); /* Cor discreta */
+            margin-left: auto;   /* Empurra para a direita */
+        }
+
+        /* ── Layout principal: painel + mapa ────── */
+        .layout {
+            display: flex;     /* Divide tela em painel lateral e mapa */
+            flex: 1;           /* Ocupa o espaço restante abaixo do header */
+            overflow: hidden;  /* Sem scroll externo */
+        }
+
+        /* ── Painel lateral esquerdo ─────────────── */
+        .painel {
+            width: 320px;                     /* Largura fixa do painel */
+            background: var(--surface);       /* Fundo do painel */
+            border-right: 1px solid var(--border); /* Separador do mapa */
+            display: flex;                    /* Flexbox para empilhar seções */
+            flex-direction: column;           /* Seções uma abaixo da outra */
+            overflow-y: auto;                 /* Scroll interno se necessário */
+            z-index: 100;                     /* Acima do mapa */
+        }
+
+        /* ── Seções dentro do painel ─────────────── */
+        .secao {
+            padding: 20px;                         /* Espaço interno */
+            border-bottom: 1px solid var(--border); /* Linha divisória */
+        }
+
+        .secao h2 {
+            font-family: 'Syne', sans-serif; /* Fonte display para títulos de seção */
+            font-size: 0.72rem;              /* Tamanho pequeno e elegante */
+            font-weight: 700;                /* Negrito */
+            text-transform: uppercase;       /* Tudo em maiúsculo */
+            letter-spacing: 0.1em;           /* Espaçamento entre letras */
+            color: var(--muted);             /* Cor discreta */
+            margin-bottom: 14px;             /* Espaço abaixo do título */
+        }
+
+        /* ── Campos de formulário ────────────────── */
+        input, select {
+            width: 100%;                      /* Ocupa toda a largura do painel */
+            background: var(--bg);            /* Fundo escuro */
+            border: 1px solid var(--border);  /* Borda sutil */
+            color: var(--text);               /* Cor do texto digitado */
+            padding: 9px 12px;                /* Espaçamento interno */
+            border-radius: 6px;               /* Bordas arredondadas */
+            font-size: 0.85rem;               /* Tamanho da fonte */
+            font-family: inherit;             /* Herda a fonte do body */
+            margin-bottom: 10px;              /* Espaço abaixo de cada campo */
+            outline: none;                    /* Remove o outline padrão do browser */
+            transition: border-color 0.2s;   /* Animação suave ao focar */
+        }
+
+        input:focus, select:focus {
+            border-color: #38bdf8; /* Destaque azul ao focar no campo */
+        }
+
+        /* ── Botões ──────────────────────────────── */
+        button {
+            width: 100%;                    /* Ocupa toda a largura */
+            padding: 10px;                  /* Espaçamento interno */
+            border: none;                   /* Sem borda padrão */
+            border-radius: 6px;             /* Bordas arredondadas */
+            font-family: 'Syne', sans-serif; /* Fonte display no botão */
+            font-weight: 700;               /* Negrito */
+            font-size: 0.82rem;             /* Tamanho da fonte */
+            cursor: pointer;                /* Cursor de mão ao passar */
+            transition: opacity 0.2s, transform 0.1s; /* Animação suave */
+            letter-spacing: 0.04em;         /* Leve espaçamento entre letras */
+            text-transform: uppercase;      /* Texto em maiúsculo */
+        }
+
+        button:active { transform: scale(0.98); } /* Leve encolhimento ao clicar */
+
+        /* Botão principal azul */
+        .btn-primary {
+            background: #38bdf8;  /* Azul vibrante */
+            color: #0e1117;       /* Texto escuro para contraste */
+        }
+
+        /* Botão de ativação do modo de desenho */
+        .btn-draw {
+            background: transparent;            /* Fundo transparente */
+            border: 1px solid var(--border);    /* Borda sutil */
+            color: var(--text);                 /* Texto claro */
+            margin-bottom: 10px;                /* Espaço abaixo */
+        }
+
+        .btn-draw.ativo {
+            border-color: #f472b6; /* Rosa quando o modo de desenho está ativo */
+            color: #f472b6;        /* Texto rosa quando ativo */
+        }
+
+        /* ── Indicador de modo de desenho ───────── */
+        #status-desenho {
+            font-size: 0.75rem;  /* Texto pequeno */
+            color: var(--muted); /* Cor discreta */
+            margin-bottom: 12px; /* Espaço abaixo */
+            min-height: 18px;    /* Altura mínima para não colapsar */
+        }
+
+        /* ── Lista de polígonos cadastrados ─────── */
+        #lista-poligonos {
+            display: flex;         /* Flexbox para empilhar itens */
+            flex-direction: column;
+            gap: 8px;              /* Espaço entre os itens da lista */
+        }
+
+        /* ── Item individual da lista ────────────── */
+        .item-poligono {
+            background: var(--bg);             /* Fundo escuro */
+            border: 1px solid var(--border);   /* Borda sutil */
+            border-radius: 8px;                /* Bordas arredondadas */
+            padding: 10px 12px;                /* Espaçamento interno */
+            display: flex;                     /* Alinha conteúdo e botão */
+            align-items: center;               /* Centraliza verticalmente */
+            justify-content: space-between;    /* Espaça conteúdo dos extremos */
+        }
+
+        .item-poligono .info { flex: 1; } /* O bloco de info ocupa o espaço restante */
+
+        .item-poligono .nome {
+            font-size: 0.85rem; /* Nome do polígono */
+            font-weight: 500;   /* Peso médio */
+        }
+
+        /* ── Badge colorido por tipo de área ────── */
+        .badge {
+            display: inline-block;    /* Para aplicar padding */
+            padding: 2px 8px;         /* Espaçamento interno */
+            border-radius: 999px;     /* Formato de pílula */
+            font-size: 0.68rem;       /* Texto bem pequeno */
+            font-weight: 700;         /* Negrito */
+            text-transform: uppercase; /* Maiúsculo */
+            margin-top: 3px;          /* Espaço acima */
+        }
+
+        /* Cores específicas para cada tipo de área */
+        .badge-escolar     { background: #0c3550; color: var(--accent-escolar); }
+        .badge-industrial  { background: #3b1f0a; color: var(--accent-industrial); }
+        .badge-residencial { background: #0f2e1a; color: var(--accent-residencial); }
+
+        /* ── Botão de deletar item ───────────────── */
+        .btn-deletar {
+            width: auto;          /* Largura automática (não 100%) */
+            background: none;     /* Sem fundo */
+            border: none;         /* Sem borda */
+            color: var(--muted);  /* Cor discreta */
+            cursor: pointer;      /* Cursor de mão */
+            font-size: 1rem;      /* Tamanho do ícone × */
+            padding: 0 4px;       /* Pequeno espaçamento */
+            transition: color 0.2s; /* Animação ao passar o mouse */
+        }
+
+        .btn-deletar:hover { color: #f87171; } /* Vermelho ao hover */
+
+        /* ── Painel de resultado da consulta de ponto ── */
+        #resultado-ponto {
+            font-size: 0.82rem;  /* Fonte pequena */
+            line-height: 1.6;    /* Altura de linha confortável */
+        }
+
+        /* ── Legenda de tipos ────────────────────── */
+        .legenda {
+            display: flex;         /* Itens lado a lado */
+            flex-wrap: wrap;       /* Quebra de linha se necessário */
+            gap: 8px;              /* Espaço entre itens */
+        }
+
+        .legenda-item {
+            display: flex;        /* Ícone + texto lado a lado */
+            align-items: center;  /* Centraliza verticalmente */
+            gap: 6px;             /* Espaço entre bolinha e texto */
+            font-size: 0.78rem;   /* Texto pequeno */
+        }
+
+        /* ── Bolinha colorida da legenda ─────────── */
+        .dot {
+            width: 10px;          /* Tamanho fixo */
+            height: 10px;
+            border-radius: 50%;   /* Círculo perfeito */
+        }
+
+        /* ── Área do mapa ────────────────────────── */
+        #mapa {
+            flex: 1;    /* Ocupa todo o espaço restante ao lado do painel */
+            z-index: 0; /* Abaixo dos elementos de UI */
+        }
+
+        /* ── Mensagem de lista vazia ─────────────── */
+        .vazio {
+            color: var(--muted);  /* Cor discreta */
+            font-size: 0.8rem;    /* Fonte pequena */
+            text-align: center;   /* Centralizado */
+            padding: 12px 0;      /* Espaçamento vertical */
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── CABEÇALHO ─────────────────────────────── -->
+<header>
+    <!-- Ícone SVG de mapa -->
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+        <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+    </svg>
+    <h1>Mapa de Áreas — Jacareí SP</h1>           <!-- Título principal -->
+    <span class="sub">FATEC Jacareí · PRJ.12</span> <!-- Subtítulo com informação da faculdade -->
+</header>
+
+<!-- ── LAYOUT PRINCIPAL ──────────────────────── -->
+<div class="layout">
+
+    <!-- ── PAINEL LATERAL ────────────────────── -->
+    <div class="painel">
+
+        <!-- Seção: Cadastrar novo polígono -->
+        <div class="secao">
+            <h2>Cadastrar Área</h2>
+
+            <!-- Campo de nome da área -->
+            <input type="text" id="nome" placeholder="Nome da área (ex: Fatec Jacareí)" />
+
+            <!-- Seleção do tipo de área -->
+            <select id="tipo">
+                <option value="">Selecione o tipo...</option>
+                <option value="escolar">🎓 Escolar</option>
+                <option value="industrial">🏭 Industrial</option>
+                <option value="residencial">🏠 Residencial</option>
+            </select>
+
+            <!-- Botão para ativar/desativar o modo de desenho no mapa -->
+            <button class="btn-draw" id="btn-desenhar" onclick="toggleDesenho()">
+                ✏️ Desenhar Polígono no Mapa
+            </button>
+
+            <!-- Texto de status que orienta o usuário durante o desenho -->
+            <div id="status-desenho">Clique no botão acima para iniciar o desenho.</div>
+
+            <!-- Botão que envia o polígono desenhado para o servidor -->
+            <button class="btn-primary" onclick="salvarPoligono()">Salvar Polígono</button>
+        </div>
+
+        <!-- Seção: Resultado da consulta de ponto -->
+        <div class="secao">
+            <h2>Área do Ponto Clicado</h2>
+            <!-- Resultado preenchido dinamicamente pelo JavaScript -->
+            <div id="resultado-ponto">Clique em qualquer ponto do mapa (fora do modo desenho).</div>
+        </div>
+
+        <!-- Seção: Lista de polígonos cadastrados -->
+        <div class="secao" style="flex:1">
+            <h2>Áreas Cadastradas</h2>
+            <!-- Lista preenchida dinamicamente -->
+            <div id="lista-poligonos"><p class="vazio">Nenhuma área cadastrada.</p></div>
+        </div>
+
+        <!-- Seção: Legenda de cores -->
+        <div class="secao">
+            <h2>Legenda</h2>
+            <div class="legenda">
+                <div class="legenda-item">
+                    <div class="dot" style="background:#38bdf8"></div> Escolar
+                </div>
+                <div class="legenda-item">
+                    <div class="dot" style="background:#fb923c"></div> Industrial
+                </div>
+                <div class="legenda-item">
+                    <div class="dot" style="background:#4ade80"></div> Residencial
+                </div>
+            </div>
+        </div>
+
+    </div><!-- fim .painel -->
+
+    <!-- ── MAPA LEAFLET ───────────────────────── -->
+    <div id="mapa"></div>
+
+</div><!-- fim .layout -->
+
+<!-- Importa o JavaScript do Leaflet.js (biblioteca de mapas interativos) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// INICIALIZAÇÃO DO MAPA LEAFLET
+
+// Cria o mapa Leaflet centralizado em Jacareí - SP
+// Coordenadas: latitude -23.305, longitude -45.965 (centro de Jacareí)
+// Nível de zoom 14 oferece visão de bairros
+const mapa = L.map("mapa").setView([-23.305, -45.965], 14);
+
+// Adiciona o tile layer (camada de imagem do mapa) usando OpenStreetMap
+// {z}/{x}/{y}: variáveis dinâmicas substituídas pelo Leaflet conforme o zoom e posição
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors", // Crédito obrigatório ao OSM
+    maxZoom: 19  // Nível máximo de zoom permitido
+}).addTo(mapa); // Adiciona esta camada ao mapa
+
+
+// VARIÁVEIS DE ESTADO DO DESENHO
+
+let modoDesenho = false;         // Flag que indica se o usuário está no modo de desenho
+let pontosSelecionados = [];     // Array que armazena os pontos clicados pelo usuário
+let marcadoresTmp = [];          // Array de marcadores temporários exibidos no mapa
+let linhaPrevia = null;          // Linha que conecta os pontos durante o desenho
+let poligonoAtual = null;        // Polígono temporário exibido no mapa antes de salvar
+
+
+// CORES POR TIPO DE ÁREA
+
+// Mapeamento de tipo de área para cor de exibição no mapa
+const cores = {
+    escolar: "#38bdf8",      // Azul para áreas escolares
+    industrial: "#fb923c",   // Laranja para áreas industriais
+    residencial: "#4ade80"   // Verde para áreas residenciais
+};
+
+
+// ATIVAR / DESATIVAR MODO DE DESENHO
+
+function toggleDesenho() {
+    // Inverte o estado do modo de desenho (true → false, false → true)
+    modoDesenho = !modoDesenho;
+
+    const btn = document.getElementById("btn-desenhar"); // Referência ao botão
+    const status = document.getElementById("status-desenho"); // Referência ao texto de status
+
+    if (modoDesenho) {
+        // Ativa o modo de desenho: muda visual do botão e orienta o usuário
+        btn.classList.add("ativo");
+        btn.textContent = "⛔ Cancelar Desenho";
+        status.textContent = "Clique no mapa para adicionar pontos. Mínimo 3 pontos.";
+        limparDesenhoTemporario(); // Limpa qualquer desenho anterior
+    } else {
+        // Desativa o modo de desenho: restaura visual e limpa o mapa
+        btn.classList.remove("ativo");
+        btn.textContent = "✏️ Desenhar Polígono no Mapa";
+        status.textContent = "Desenho cancelado.";
+        limparDesenhoTemporario(); // Remove marcadores e linhas temporárias
+    }
+}
+
+
+// LIMPAR ELEMENTOS TEMPORÁRIOS DO MAPA
+
+function limparDesenhoTemporario() {
+    pontosSelecionados = []; // Esvazia o array de pontos
+
+    // Remove cada marcador temporário do mapa
+    marcadoresTmp.forEach(m => mapa.removeLayer(m));
+    marcadoresTmp = []; // Esvazia o array de marcadores
+
+    // Remove a linha prévia do mapa se existir
+    if (linhaPrevia) { mapa.removeLayer(linhaPrevia); linhaPrevia = null; }
+
+    // Remove o polígono temporário do mapa se existir
+    if (poligonoAtual) { mapa.removeLayer(poligonoAtual); poligonoAtual = null; }
+}
+
+
+// EVENTO DE CLIQUE NO MAPA
+
+mapa.on("click", function(e) {
+    // Se o modo de desenho estiver ativo, adiciona pontos ao polígono
+    if (modoDesenho) {
+        const lat = e.latlng.lat; // Latitude do ponto clicado
+        const lng = e.latlng.lng; // Longitude do ponto clicado
+
+        pontosSelecionados.push([lat, lng]); // Adiciona o ponto ao array
+
+        // Cria um marcador pequeno (círculo) no ponto clicado
+        const marcador = L.circleMarker([lat, lng], {
+            radius: 5,          // Raio do círculo em pixels
+            color: "#f472b6",   // Cor da borda (rosa)
+            fillColor: "#f472b6", // Cor de preenchimento
+            fillOpacity: 1      // Opacidade total
+        }).addTo(mapa);
+
+        marcadoresTmp.push(marcador); // Registra o marcador para poder removê-lo depois
+
+        // Atualiza o status com a contagem de pontos adicionados
+        document.getElementById("status-desenho").textContent =
+            `${pontosSelecionados.length} ponto(s) adicionado(s). Clique em "Salvar" quando terminar.`;
+
+        // Se já há pelo menos 2 pontos, exibe uma linha conectando-os
+        if (pontosSelecionados.length >= 2) {
+            if (linhaPrevia) mapa.removeLayer(linhaPrevia); // Remove a linha anterior
+            // Cria uma polyline rosa conectando todos os pontos
+            linhaPrevia = L.polyline(pontosSelecionados, { color: "#f472b6", dashArray: "4" }).addTo(mapa);
+        }
+
+        // Se há pelo menos 3 pontos, exibe o polígono preenchido como prévia
+        if (pontosSelecionados.length >= 3) {
+            if (poligonoAtual) mapa.removeLayer(poligonoAtual); // Remove prévia anterior
+            // Cria o polígono temporário com preenchimento semi-transparente
+            poligonoAtual = L.polygon(pontosSelecionados, {
+                color: "#f472b6",      // Cor da borda
+                fillColor: "#f472b6",  // Cor de preenchimento
+                fillOpacity: 0.15      // Preenchimento quase transparente
+            }).addTo(mapa);
+        }
+
+    } else {
+        // Se não estiver no modo de desenho, consulta a área do ponto clicado
+        consultarPonto(e.latlng.lat, e.latlng.lng);
+    }
+});
+
+
+// SALVAR POLÍGONO NO SERVIDOR
+
+async function salvarPoligono() {
+    const nome = document.getElementById("nome").value.trim(); // Lê o nome digitado
+    const tipo = document.getElementById("tipo").value;        // Lê o tipo selecionado
+
+    // Validações antes de enviar
+    if (!nome) { alert("Informe o nome da área."); return; }
+    if (!tipo) { alert("Selecione o tipo de área."); return; }
+    if (pontosSelecionados.length < 3) {
+        alert("Desenhe um polígono com pelo menos 3 pontos no mapa.");
+        return;
+    }
+
+    // Envia os dados para o endpoint de cadastro via fetch (AJAX)
+    const resposta = await fetch("/api/poligonos", {
+        method: "POST",   // Método HTTP POST para criação de recurso
+        headers: { "Content-Type": "application/json" }, // Informa que o corpo é JSON
+        body: JSON.stringify({   // Converte o objeto JavaScript para string JSON
+            nome: nome,
+            tipo: tipo,
+            coordenadas: pontosSelecionados // Lista de [lat, lng]
+        })
+    });
+
+    const dados = await resposta.json(); // Lê a resposta do servidor como JSON
+
+    if (resposta.ok) {
+        // Sucesso: limpa o formulário e recarrega a lista de polígonos
+        alert(`✅ ${dados.mensagem}`);
+        document.getElementById("nome").value = ""; // Limpa o campo de nome
+        document.getElementById("tipo").value = ""; // Reseta o select
+
+        // Desativa o modo de desenho e limpa o estado
+        modoDesenho = false;
+        document.getElementById("btn-desenhar").classList.remove("ativo");
+        document.getElementById("btn-desenhar").textContent = "✏️ Desenhar Polígono no Mapa";
+        document.getElementById("status-desenho").textContent = "Polígono salvo com sucesso!";
+        limparDesenhoTemporario(); // Remove marcadores e linhas temporárias
+
+        carregarPoligonos(); // Recarrega todos os polígonos do banco e exibe no mapa
+    } else {
+        alert(`❌ Erro: ${dados.erro}`); // Exibe o erro retornado pelo servidor
+    }
+}
+
+// CARREGAR POLÍGONOS DO BANCO E EXIBIR NO MAPA
+
+let camadasPoligonos = {}; // Dicionário para rastrear as camadas exibidas no mapa por ID
+
+async function carregarPoligonos() {
+    // Faz requisição GET para buscar todos os polígonos do banco
+    const resposta = await fetch("/api/poligonos");
+    const poligonos = await resposta.json(); // Converte resposta para array JavaScript
+
+    // Remove todas as camadas de polígonos já exibidas no mapa
+    Object.values(camadasPoligonos).forEach(c => mapa.removeLayer(c));
+    camadasPoligonos = {}; // Limpa o dicionário
+
+    const lista = document.getElementById("lista-poligonos"); // Referência à lista do painel
+    lista.innerHTML = ""; // Limpa a lista visual
+
+    // Se não há polígonos cadastrados, exibe mensagem
+    if (poligonos.length === 0) {
+        lista.innerHTML = '<p class="vazio">Nenhuma área cadastrada.</p>';
+        return;
+    }
+
+    // Itera sobre cada polígono retornado pelo servidor
+    poligonos.forEach(p => {
+        const cor = cores[p.tipo] || "#ffffff"; // Obtém a cor do tipo (fallback branco)
+
+        // Cria a camada do polígono no mapa com a cor correspondente ao tipo
+        const camada = L.polygon(p.coordenadas, {
+            color: cor,          // Cor da borda do polígono
+            fillColor: cor,      // Cor de preenchimento
+            fillOpacity: 0.2,    // Transparência do preenchimento (20%)
+            weight: 2            // Espessura da borda em pixels
+        }).addTo(mapa);
+
+        // Adiciona tooltip (label flutuante) com nome e tipo ao passar o mouse
+        camada.bindTooltip(`<b>${p.nome}</b><br>${p.tipo}`, {
+            permanent: false,  // Aparece apenas ao passar o mouse
+            direction: "top"   // Exibe acima do polígono
+        });
+
+        camadasPoligonos[p.id] = camada; // Registra a camada pelo ID para remoção futura
+
+        // Cria o elemento HTML do item na lista lateral
+        const item = document.createElement("div");
+        item.className = "item-poligono"; // Classe CSS para estilização
+        item.innerHTML = `
+            <div class="info">
+                <div class="nome">${p.nome}</div>
+                <span class="badge badge-${p.tipo}">${p.tipo}</span>
+            </div>
+            <!-- Botão × para deletar o polígono, chama deletarPoligono com o ID -->
+            <button class="btn-deletar" onclick="deletarPoligono(${p.id})" title="Remover">×</button>
+        `;
+        lista.appendChild(item); // Adiciona o item à lista do painel
+    });
+}
+
+
+// DELETAR POLÍGONO
+
+async function deletarPoligono(id) {
+    // Confirmação antes de deletar para evitar exclusões acidentais
+    if (!confirm("Remover esta área do mapa?")) return;
+
+    // Envia requisição DELETE para o servidor com o ID do polígono
+    const resposta = await fetch(`/api/poligonos/${id}`, { method: "DELETE" });
+
+    if (resposta.ok) {
+        carregarPoligonos(); // Recarrega a lista e o mapa após a exclusão
+    }
+}
+
+
+// CONSULTAR ÁREA POR PONTO CLICADO
+
+async function consultarPonto(lat, lng) {
+    const div = document.getElementById("resultado-ponto"); // Referência ao painel de resultado
+    div.textContent = "Consultando..."; // Feedback imediato ao usuário
+
+    // Envia o ponto clicado para o servidor verificar qual área ele pertence
+    const resposta = await fetch("/api/consultar_ponto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }) // Envia latitude e longitude
+    });
+
+    const dados = await resposta.json(); // Lê a resposta
+
+    if (dados.areas && dados.areas.length > 0) {
+        // Formata e exibe as áreas encontradas para o ponto clicado
+        div.innerHTML = dados.areas.map(a =>
+            `<b>${a.nome}</b> <span class="badge badge-${a.tipo}">${a.tipo}</span>`
+        ).join("<br>"); // Quebra de linha entre áreas (ponto pode estar em múltiplas)
+    } else {
+        // Informa que o ponto não pertence a nenhuma área cadastrada
+        div.textContent = "Este ponto não está dentro de nenhuma área cadastrada.";
+    }
+}
+
+
+// INICIALIZAÇÃO: carrega os polígonos ao abrir a página
+carregarPoligonos(); // Chamada inicial para popular o mapa e a lista lateral
+
+</script>
+</body>
+</html>
