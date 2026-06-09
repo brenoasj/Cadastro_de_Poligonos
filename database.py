@@ -2,14 +2,14 @@
 database.py - Módulo responsável por toda comunicação com o banco de dados PostgreSQL + PostGIS
 """
 
-import psycopg2  # driver compatível com psycopg2-binary do requirements.txt
+import psycopg  # psycopg3
 import json
-import os       # lê variáveis de ambiente
+import os
 
 
 def get_conexao():
     """Cria e retorna uma conexão com o banco PostgreSQL usando variáveis de ambiente."""
-    return psycopg2.connect(
+    return psycopg.connect(
         host=os.environ.get("DB_HOST", "localhost"),
         port=int(os.environ.get("DB_PORT", 5432)),
         dbname=os.environ.get("DB_NAME", "poligonos_db"),
