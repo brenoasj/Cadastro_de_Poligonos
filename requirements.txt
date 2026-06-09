@@ -1,7 +1,3 @@
-# requirements.txt
-# Lista de dependências do projeto Python
-# Instale com: pip install -r requirements.txt
-
-Flask==3.0.3          # Framework web principal — cria rotas HTTP e renderiza templates
-psycopg2-binary==2.9.9 # Driver de conexão entre Python e PostgreSQL (binary = sem compilar)
-gunicorn==22.0.0       # Servidor WSGI para produção (substitui o servidor de dev do Flask)
+Flask==3.0.3
+psycopg2-binary==2.9.9
+gunicorn==22.0.0
